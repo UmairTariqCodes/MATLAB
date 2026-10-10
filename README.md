@@ -1,92 +1,80 @@
-# MATLAB Portfolio Problems
-These Portfolio problems demonstrate comprehensive knowledge and understanding of mathematical and computational models relevant to the engineering discipline, and an appreciation of their limitations. They underline the ability monitor, interpret and apply the results of analysis and modelling in order to bring about continuous improvement.
+# Numerical methods in MATLAB
 
-Candidate Number: 249383
+Four engineering problems I solved in the second year of my Mechanical Engineering degree at the University of Sussex (2024). Each one needed a different numerical method: linear systems, root-finding, finite differences and ODE integration. The aim was to model a physical system, solve it, and check whether the answer made sense.
 
-## Portfolio Problem: [01 - Network_Problem (2).pptx](https://github.com/user-attachments/files/16193376/01.-.Network_Problem.2.pptx) 
-Water Supply Network Design and Analysis
+| # | Problem | Method | Folder |
+|---|---|---|---|
+| 1 | Flows and pressure losses in a water supply network | Linearised loop equations + Gaussian elimination with partial pivoting | [`01_water_network`](01_water_network) |
+| 2 | Supply pressure as demand varies over a day | Curve fitting of noisy data, bracketing + Ridder's method, repeated network solves | [`02_demand_variation`](02_demand_variation) |
+| 3 | Temperature field in a cooling fin | 2D transient explicit finite differences with ghost-node boundaries | [`03_cooling_fin`](03_cooling_fin) |
+| 4 | Three chemicals mixing across four tanks | 12 coupled ODEs integrated with `ode45` | [`04_mixing_tanks`](04_mixing_tanks) |
 
-Objective:
-To design and analyse a water supply network servicing a small industrial estate, focusing on determining the unknown volumetric flow rates in each pipe and the pressure loss from the source to each unit.
+Shared solver: [`lib/gaussPiv.m`](lib/gaussPiv.m).
 
-Network Specifications: 
-6 nodes, each linked to an industrial unit. 7 internal pipes and 2 supply pipes from an off-site network with known source pressure. 6 industrial units (Unit 1 to Unit 6).
+---
 
-Tasks:
-Determine Flow Rates: Calculate the flow rates (Q) for all pipes in the network.
-Calculate Pressure Loss: Determine the pressure loss from the source to each unit.
+## 1. Water supply network
 
-## Portfolio Problem: [02 - Supply_Variation.pptx](https://github.com/user-attachments/files/16193378/02.-.Supply_Variation.pptx) 
-Water Demand Variation Analysis
+A site main feeds six industrial units through nine pipes. Writing continuity at each node (6 equations) and a head balance round each loop (3 equations) gives a 9×9 system. Head loss depends on Q², so I linearised it about the previous estimate and re-solved until the flows stopped changing. I wrote my own Gaussian elimination with partial pivoting rather than using `\`.
 
-Objective:
-Investigate the supply pressure variations due to changes in water demand across six industrial units, using flow rate data recorded every minute over a 24-hour period.
+| Pipe | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | Q7 | Q8 | Q9 |
+|---|---|---|---|---|---|---|---|---|---|
+| Flow (L/s) | 111.3 | 38.8 | 37.2 | 178.8 | 52.4 | 36.0 | 51.6 | 22.4 | 21.6 |
 
-Task 1: Smooth Curve Fitting and Pressure Analysis
-Fit a smooth curve to the noisy flow rate data for each unit.
-For each minute with demand, re-run the calculations from Problem 1 to determine pipe flow rates and supply pressure loss.
-Present a graph of daily variation in water pressure for each unit.
+Check: the two supply pipes (Q1 + Q4 = 290 L/s) carry exactly the total demand of the six units.
 
-Task 2: Demand Exceedance Analysis
-Identify times when each unit's water usage exceeds its declared demand using numerical root finding techniques.
-Determine intersection points of the smooth curve with the declared usage value.
-Graph unit supply pressure versus time of day.
+## 2. Demand variation over a day
 
-## Portfolio Problem: [03 - Cooling_Fin (1).pptx](https://github.com/user-attachments/files/16193379/03.-.Cooling_Fin.1.pptx)
-Cooling Fin Thermal Simulation
+Each unit's flow was logged every minute for 24 hours. I fitted a Gaussian to each noisy series, then used Ridder's method to find when each unit goes over its declared demand, and re-solved the network for all 1,440 minutes.
 
-Objective:
-To set up and solve a 2D numerical simulation for the internal transient temperature distribution of a cooling fin used in an industrial process within one of the buildings.
+![Fitted demand with crossings](figures/02_demand_crossings.png)
 
-Network Specifications:
-Geometry:
-Length (L): 4 cm
-Thickness (th): 1 cm
-Material Properties:
-Thermal Conductivity (k): 1 W/m-K
-Density (ρ): 2100 kg/m³
-Specific Heat Capacity (c): 850 J/kg-K
-Parameters Based on Candidate Number:
+| Unit | Over declared demand |
+|---|---|
+| 1 | 10:44 – 11:41 |
+| 2 | 12:49 – 14:22 |
+| 3 | 01:41 – 16:00 |
+| 4 | 11:48 – 14:36 |
+| 5 | 06:13 – 11:54 |
+| 6 | Never exceeds it |
 
-Heat Transfer Coefficient (h): Derived from the 3rd, 4th, and 5th digits of the candidate number.
-Heat Flux (q''): Calculated by dividing the first 5 digits of the candidate number by the last digit.
+![Head loss across the day](figures/02_head_loss.png)
 
-Tasks:
-Define equations for nine types of nodes (internal, boundaries, and corners) using appropriate boundary conditions.
-Apply finite differencing (1st order forward for time, 2nd order central for spatial).
+Negative head loss in a pipe means its flow runs opposite to the direction I assumed when setting up the network.
 
-Output Results:
-Generate plots of temperature distribution at five equally spaced points along the mid-plane and top boundary.
-Create contour plots of the 2D temperature distribution.
-Include detailed solution steps and MATLAB code in the portfolio write-up.
+## 3. Cooling fin
 
-## Portfolio Problem: [04 - Mixing_Tanks (1).pptx](https://github.com/user-attachments/files/16193382/04.-.Mixing_Tanks.1.pptx)
-Mixing Tanks – Initial Value Problems
+A 4 cm × 1 cm fin with heat flux into its base, convection from its top face and a symmetry line along the bottom. I discretised it on a 100 × 20 grid, using forward Euler in time and central differences in space, and imposed each boundary condition through a ring of ghost nodes.
 
-Objective:
-To derive and solve a system of first-order differential equations for a network of mixing tanks involving time-dependent injections of three chemical components.
+![Cooling fin temperature](figures/03_cooling_fin.png)
 
-Network Specifications:
+## 4. Mixing tanks
 
-Tanks: 4 tanks with equal volume.
-Chemical Concentrations: Each tank has three chemicals (α, β, γ) with time-dependent injections.
-Flow Rates:
-Various flow rates between tanks and inlets as depicted in the network diagram.
-Parameters Based on Candidate Number:
+A mass balance on each chemical in each tank gives 12 coupled ODEs with oscillating injection terms. I integrated them with `ode45` and extended the time span until every concentration had settled into a steady periodic pattern.
 
-Injection Rates:
-𝐴1=3rd digit of candidate number×100
-𝐵1=4th digit of candidate number×20
-C1=5th digit of candidate number×100
-B2=Tuning parameter (initially set to 40, adjust for balance).
+![Tank concentrations](figures/04_tank_concentrations.png)
 
-Tasks:
-Derive System of Equations:
-Set notation for a system of first-order differential equations for each chemical in each tank.
-Derive 12 equations (3 per tank) based on the network layout and time-varying concentration inputs.
-Represent equations using α, β, γ, and then in a simplified notation for coding.
+---
 
-Output Results:
-Produce plots showing the concentration of chemicals over time in each tank.
-Validate results and ensure steady state is reached before finalizing the timespan.
+## What I would do differently
+
+- **Cooling fin time step.** The explicit scheme is stable up to dt ≈ 0.087 s, but I used 0.001 s, so 10,000 steps only cover 10 seconds. The fin's thermal time constant (L²/α) is around 48 minutes, so the plot shows the very start of the transient, not steady state. A time step near the stability limit, or an implicit (Crank–Nicolson) scheme, would reach steady state in far fewer steps.
+- **Curve fitting.** The Gaussian coefficients were fitted with MATLAB's Curve Fitting Toolbox and pasted in. Doing the fit in the script with `lsqcurvefit` would make it reproducible from the raw data.
+- **Vectorisation.** The fin update uses nested loops; the same update written with array indexing runs much faster.
+
+## Running it
+
+Each folder is self-contained. Run from that folder in MATLAB:
+
+```matlab
+water_network          % problem 1, prints flows and pressure losses
+demand_variation       % problem 2
+cooling_fin            % problem 3
+mixing_tanks           % problem 4
+```
+
+## References
+
+- Ridder, C. (1979). A new algorithm for computing a single root of a real continuous function. *IEEE Transactions on Circuits and Systems*, 26(11).
+- Kiusalaas, J. (2016). *Numerical Methods in Engineering with MATLAB*, 3rd ed. Cambridge University Press. My Ridder's method implementation follows the structure given here.
 
